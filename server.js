@@ -26,9 +26,9 @@ ws.on('connection', wsConnection)
 
 function wsConnection(socket, req) {
 	console.log('ws connect success!!!')
-	console.log('req-url:', req.url)
+	// console.log('req-url:', req.url)
 
-	const visitorName = createVisitorName()
+	const visitorName = assignVisitorName()
 	const roomId = req.url.slice(1)
 	socket['uname'] = visitorName
 	socket['roomId'] = roomId
@@ -36,9 +36,9 @@ function wsConnection(socket, req) {
 	const curRoom = getCurrentRoom(roomId)
 	const chatHisList = chatHisMap.get(roomId)
 	if (chatHisList !== undefined && chatHisList.length > 0) {
-		// socket.send(JSON.stringify({ type: 'chatHis', chatHisList }))
 		emit(socket, { type: 'chatHis', chatHisList })
 	}
+	emit(socket, { type: 'assignVisitorName', visitorName })
 	broadcastRoomClients(curRoom, { type: 'visitor', visitorName })
 	broadcastRoomClients(curRoom, { type: 'connCount', connectCount: curRoom.length })
 
@@ -61,12 +61,11 @@ function wsIncomingMsg(message) {
 		chatHisMap.set(roomId, chatList)
 	} else {
 		const chatList = chatHisMap.get(roomId)
-		if (chatList.length >= 10) {
-			chatList.splice(0, 5)
+		if (chatList.length >= 30) {
+			chatList.splice(0, 20)
 		}
 		chatList.push({ type: 'chat', name, words })
 	}
-	console.log('chatHisMap:', chatHisMap)
 }
 
 function wsClose() {
@@ -86,7 +85,7 @@ function emit(socket, message) {
 }
 
 function noticeDelConnect() {
-	const rooms = getRoomsByRoomId()
+	const rooms = getAllRooms()
 	rooms.forEach(room =>
 		room.forEach(client => {
 			if (client.readyState === WebSocket.OPEN) {
@@ -96,7 +95,7 @@ function noticeDelConnect() {
 	)
 }
 
-function getRoomsByRoomId() {
+function getAllRooms() {
 	const rooms = new Map()
 	ws.clients.forEach(client => {
 		const roomId = client.roomId
@@ -131,6 +130,10 @@ function broadcastRoomClients(cuRoom, message) {
 	})
 }
 
-function createVisitorName() {
-	return '游客' + Math.floor(Math.random() * 8888 + 1111)
+function assignVisitorName() {
+	return '游客' + generateID(5)
+}
+
+function generateID(length) {
+	return Number(Math.random().toString().substr(3, length) + Date.now()).toString(36)
 }
